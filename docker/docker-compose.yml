@@ -1,0 +1,74 @@
+services:
+  #python code service
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile-odoo
+    container_name: winads_oddo_web
+    user: root
+    depends_on:
+      - winads_db_postgres
+    volumes:
+      - ../odoo-web-data:/var/lib/odoo #core source code 
+      - ../config:/etc/odoo #config oddo
+      - ../addons:/mnt/extra-addons #addons custom module
+    networks:
+      - winads_oddo_network
+
+    environment:
+      - HOST=winads_db_postgres
+      - USER=odoo
+      - PASSWORD=odoo16@2022
+      - POSTGRES_DB=postgres
+  
+  #database service
+  winads_db_postgres:
+    image: postgres:15
+    user: root
+    container_name: winads_db_postgres
+    restart: always
+    environment:
+      - POSTGRES_USER=odoo
+      - POSTGRES_PASSWORD=odoo16@2022
+      - POSTGRES_DB=postgres
+      - PGDATA=/var/lib/postgresql/data/pgdata
+      - "POSTGRES_HOST_AUTH_METHOD=trust" #setting khi db không resolve được không an toàn chỉ sài ở môi trường dev máy windowns không bị thì tắt nó đi 
+    volumes:
+      - oddo-db-data-new:/var/lib/postgresql/data/pgdata
+    ports:
+      - 5433:5432
+    networks:
+      - winads_oddo_network
+  
+  #nginx service sài proxy để dùng được  longpolling websocket 
+  proxy:
+    depends_on:
+        - web
+    container_name: winads_odoo_proxy
+    build:
+        context: .
+        dockerfile: Dockerfile-nginx
+    ports:
+        - "8069:8069"
+    networks:
+      - winads_oddo_network       
+   #redis service 
+#  redis:
+#    image: redis:latest
+#    container_name: winads_oddo_redis
+#    ports:
+#        - "2002:6379"
+#    volumes:
+#        - "oddo-redis-data:/data"
+#    networks:
+#        - winads_oddo_network
+
+#volume data            
+volumes:
+  odoo-web-data:
+  oddo-db-data-new:
+  oddo-redis-data:
+
+networks:
+    winads_oddo_network:
+        driver: bridge
